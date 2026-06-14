@@ -1,4 +1,4 @@
-# 🖥️ Secure Cloud Log Analyzer
+Okais Rasool (2023-ag -9660 ) # 🖥️ Secure Cloud Log Analyzer
 **CS-508 Cloud Computing — MapReduce + Neon DB + Railway**
 
 A production-ready web application that processes large `.log` files using a pure-Python MapReduce engine, with IAM-based access control, cloud database persistence, and automated CI/CD via GitHub → Railway.
