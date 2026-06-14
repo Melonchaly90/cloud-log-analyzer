@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Results — {{ analysis.filename }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <a href="{{ url_for('history') }}" style="color:var(--text-muted);text-decoration:none;font-size:.85rem;">History</a>
+        <i class="fa fa-chevron-right" style="font-size:.7rem;color:var(--text-muted);"></i>
+        <span style="font-size:.85rem;color:var(--text);">{{ analysis.filename }}</span>
+      </div>
+      <h2 style="font-size:1.4rem;font-weight:700;margin-top:.3rem;"><i class="fa fa-chart-bar" style="color:var(--primary);"></i> Analysis Results</h2>
+    </div>
+    <a href="{{ url_for('upload') }}" class="btn btn-outline"><i class="fa fa-upload"></i> New Upload</a>
+  </div>
+
+  {% set r = analysis.results %}
+  {% set meta = r.meta %}
+
+  <!-- Meta stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-lines-leaning"></i> Log Lines Processed</div>
+      <div class="value primary">{{ "{:,}".format(meta.total_lines) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-arrow-right-arrow-left"></i> Total HTTP Requests</div>
+      <div class="value primary">{{ "{:,}".format(meta.total_requests) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-triangle-exclamation"></i> Total Errors (4xx/5xx)</div>
+      <div class="value danger">{{ "{:,}".format(meta.total_errors) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-percent"></i> Error Rate</div>
+      <div class="value {% if meta.error_rate_pct > 10 %}danger{% elif meta.error_rate_pct > 5 %}warning{% else %}success{% endif %}">
+        {{ meta.error_rate_pct }}%
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-clock"></i> Peak Traffic Hour</div>
+      <div class="value warning">{{ meta.peak_hour }}:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-scissors"></i> MapReduce Chunks</div>
+      <div class="value primary">{{ meta.num_chunks }}</div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-chart-bar"></i> HTTP Status Codes</div>
+      <div class="chart-wrap"><canvas id="httpChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><i class="fa fa-chart-line"></i> Hourly Traffic</div>
+      <div class="chart-wrap"><canvas id="hourChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-chart-pie"></i> HTTP Methods</div>
+      <div class="chart-wrap"><canvas id="methodChart"></canvas></div>
+    </div>
+
+    <!-- Error Codes Detail -->
+    <div class="card">
+      <div class="card-header"><i class="fa fa-circle-exclamation"></i> Error Code Breakdown (4xx / 5xx)</div>
+      {% set errors = r.error_codes %}
+      {% if errors %}
+      <table>
+        <thead><tr><th>Code</th><th>Count</th><th>Severity</th></tr></thead>
+        <tbody>
+          {% for code, count in (errors.items() | sort(attribute='1', reverse=True)) %}
+          <tr>
+            <td><code style="color:var(--primary);">HTTP {{ code }}</code></td>
+            <td><strong>{{ "{:,}".format(count) }}</strong></td>
+            <td>
+              <span class="tag {% if code.startswith('5') %}tag-danger{% else %}tag-warning{% endif %}">
+                {% if code.startswith('5') %}Server Error{% else %}Client Error{% endif %}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div style="text-align:center;padding:2rem;color:var(--success);">
+          <i class="fa fa-circle-check" style="font-size:2rem;margin-bottom:.5rem;display:block;"></i>
+          No error codes detected!
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top IPs -->
+  {% if r.top_ips %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header"><i class="fa fa-network-wired"></i> Top 10 Source IP Addresses</div>
+    <table>
+      <thead><tr><th>#</th><th>IP Address</th><th>Requests</th><th>Share</th></tr></thead>
+      <tbody>
+        {% set total = meta.total_requests or 1 %}
+        {% for ip, count in (r.top_ips.items() | sort(attribute='1', reverse=True)) %}
+        <tr>
+          <td style="color:var(--text-muted);">{{ loop.index }}</td>
+          <td><code style="color:var(--info);">{{ ip }}</code></td>
+          <td>{{ "{:,}".format(count) }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;">
+                <div style="width:{{ [(count/total*100), 100]|min|round }}%;height:100%;background:var(--primary);border-radius:3px;"></div>
+              </div>
+              <span style="font-size:.8rem;color:var(--text-muted);">{{ (count/total*100)|round(1) }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- MapReduce trace -->
+  <div class="card">
+    <div class="card-header"><i class="fa fa-code-branch"></i> MapReduce Execution Summary</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;">
+      {% for stage, icon, detail in [
+          ('Split', 'fa-scissors', meta.num_chunks ~ ' chunks of ~' ~ meta.chunk_size ~ ' lines'),
+          ('Map', 'fa-map', "{:,}".format(meta.total_lines) ~ ' lines processed in parallel'),
+          ('Shuffle', 'fa-shuffle', 'Keys grouped across all chunks'),
+          ('Reduce', 'fa-compress', "{:,}".format(meta.total_requests) ~ ' total events aggregated'),
+      ] %}
+      <div style="background:var(--surface2);border-radius:10px;padding:1rem;">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+          <i class="fa {{ icon }}" style="color:var(--primary);"></i>
+          <span style="font-weight:600;font-size:.9rem;">{{ stage }}</span>
+        </div>
+        <p style="font-size:.8rem;color:var(--text-muted);">{{ detail }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#6c63ff','#42a5f5','#4caf77','#ffb74d','#ef5350','#ab47bc','#26c6da','#ec407a'];
+
+// HTTP Status Chart
+(function(){
+  const d = {{ r.http_status_counts | tojson }};
+  const labels = Object.keys(d);
+  const values = Object.values(d);
+  const colors = labels.map(l => l.startsWith('5') ? '#ef5350' : l.startsWith('4') ? '#ffb74d' : l.startsWith('2') ? '#4caf77' : '#6c63ff');
+  new Chart(document.getElementById('httpChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 5 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { color:'#2e3355' }, ticks: { color:'#9fa8c7' } }, y: { grid: { color:'#2e3355' }, ticks: { color:'#9fa8c7' } } }
+    }
+  });
+})();
+
+// Hourly traffic
+(function(){
+  const d = {{ r.hourly_traffic | tojson }};
+  const labels = Object.keys(d).map(h => h + ':00');
+  const values = Object.values(d);
+  new Chart(document.getElementById('hourChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values, borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.12)',
+        fill: true, tension: 0.4, pointBackgroundColor: '#6c63ff', pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { color:'#2e3355' }, ticks: { color:'#9fa8c7' } }, y: { grid: { color:'#2e3355' }, ticks: { color:'#9fa8c7' } } }
+    }
+  });
+})();
+
+// Method doughnut
+(function(){
+  const d = {{ r.method_counts | tojson }};
+  if (!Object.keys(d).length) { document.getElementById('methodChart').parentElement.innerHTML='<p style="text-align:center;color:var(--text-muted);padding:2rem;">No method data</p>'; return; }
+  new Chart(document.getElementById('methodChart'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(d), datasets: [{ data: Object.values(d), backgroundColor: COLORS, borderWidth: 2, borderColor: '#1a1d27' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'right', labels: { color:'#9fa8c7', padding:14, font:{size:12} } } }
+    }
+  });
+})();
+</script>
+{% endblock %}

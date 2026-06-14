@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Cloud Log Analyzer{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+    <div>
+      <h2 style="font-size:1.4rem;font-weight:700;">Dashboard</h2>
+      <p style="color:var(--text-muted);font-size:.88rem;margin-top:.2rem;">Welcome back, {{ username }}</p>
+    </div>
+    <a href="{{ url_for('upload') }}" class="btn btn-primary"><i class="fa fa-upload"></i> Upload Log File</a>
+  </div>
+
+  <!-- Quick stat cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-file-lines"></i> Total Analyses</div>
+      <div class="value primary">{{ analyses | length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-triangle-exclamation"></i> Files with Errors</div>
+      <div class="value danger">
+        {% set err_count = namespace(val=0) %}
+        {% for a in analyses %}
+          {% if a.results_json and '"error_codes"' in a.results_json %}
+            {% set err_count.val = err_count.val + 1 %}
+          {% endif %}
+        {% endfor %}
+        {{ err_count.val }}
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-circle-check"></i> System Status</div>
+      <div class="value success" style="font-size:1.1rem;">Operational</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fa fa-shield"></i> Security Layer</div>
+      <div class="value primary" style="font-size:1.1rem;">Active</div>
+    </div>
+  </div>
+
+  <!-- Recent analyses table -->
+  <div class="card">
+    <div class="card-header"><i class="fa fa-clock-rotate-left"></i> Recent Analyses</div>
+    {% if analyses %}
+    <table>
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Uploaded by</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in analyses %}
+        <tr>
+          <td><i class="fa fa-file-code" style="color:var(--primary);margin-right:.4rem;"></i>{{ a.filename }}</td>
+          <td><span class="tag tag-info">{{ a.username }}</span></td>
+          <td style="color:var(--text-muted);">{{ a.created_at }}</td>
+          <td>
+            <a href="{{ url_for('results', analysis_id=a.id) }}" class="btn btn-outline btn-sm">
+              <i class="fa fa-chart-bar"></i> View
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);">
+      <i class="fa fa-inbox" style="font-size:2.5rem;margin-bottom:1rem;display:block;"></i>
+      No analyses yet — <a href="{{ url_for('upload') }}" style="color:var(--primary);">upload your first log file</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — Cloud Log Analyzer{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:1.5rem;">
+    <i class="fa fa-shield" style="color:var(--primary);"></i> Security Audit Log
+    <span style="font-size:.8rem;color:var(--text-muted);font-weight:400;margin-left:.75rem;">(Admin view only)</span>
+  </h2>
+
+  <div class="card">
+    {% if logs %}
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-family:monospace;font-size:.8rem;color:var(--text-muted);">{{ log.created_at }}</td>
+          <td><span class="tag tag-info">{{ log.username }}</span></td>
+          <td>
+            <span class="tag {% if log.action == 'LOGIN' %}tag-success{% elif log.action == 'LOGOUT' %}tag-primary{% elif log.action == 'UPLOAD' %}tag-warning{% else %}tag-info{% endif %}">
+              {{ log.action }}
+            </span>
+          </td>
+          <td style="color:var(--text-muted);font-size:.85rem;">{{ log.detail }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);">
+      <i class="fa fa-shield" style="font-size:2.5rem;margin-bottom:1rem;display:block;"></i>
+      No audit events recorded yet.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

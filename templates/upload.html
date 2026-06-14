@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Upload Log — Cloud Log Analyzer{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:700px;">
+  <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:1.5rem;"><i class="fa fa-upload" style="color:var(--primary);"></i> Upload Log File</h2>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header"><i class="fa fa-cogs"></i> MapReduce Processing Pipeline</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;text-align:center;">
+      {% for step, icon, desc in [
+          ('Split', 'fa-scissors', 'File divided into parallel chunks'),
+          ('Map', 'fa-map', 'Emit (key,value) pairs per chunk'),
+          ('Shuffle', 'fa-shuffle', 'Group values by identical keys'),
+          ('Reduce', 'fa-compress', 'Aggregate counts per key')
+      ] %}
+      <div style="background:var(--surface2);border-radius:10px;padding:1rem .75rem;">
+        <div style="width:40px;height:40px;background:var(--primary);border-radius:10px;margin:0 auto .6rem;display:flex;align-items:center;justify-content:center;">
+          <i class="fa {{ icon }}" style="color:#fff;font-size:.95rem;"></i>
+        </div>
+        <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem;">{{ step }}</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i class="fa fa-file-arrow-up"></i> Select Log File</div>
+
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload') }}" id="uploadForm">
+      <div id="dropzone" style="border:2px dashed var(--border);border-radius:10px;padding:2.5rem;text-align:center;margin-bottom:1.25rem;cursor:pointer;transition:.2s;"
+           onclick="document.getElementById('logfile').click()">
+        <i class="fa fa-file-lines" style="font-size:2.5rem;color:var(--primary);margin-bottom:.75rem;display:block;"></i>
+        <p style="font-size:.95rem;font-weight:500;">Drag & drop your <code>.log</code> file here</p>
+        <p style="color:var(--text-muted);font-size:.82rem;margin-top:.25rem;">or click to browse — max 50 MB</p>
+        <p id="selectedFile" style="margin-top:.75rem;color:var(--success);font-size:.85rem;display:none;"></p>
+      </div>
+      <input type="file" id="logfile" name="logfile" accept=".log,.txt" style="display:none" onchange="fileSelected(this)">
+
+      <button type="submit" class="btn btn-primary" id="submitBtn" style="width:100%;justify-content:center;" disabled>
+        <i class="fa fa-play"></i> Run MapReduce Analysis
+      </button>
+    </form>
+
+    <div id="progress" style="display:none;margin-top:1.25rem;">
+      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
+        <div id="progressBar" style="height:100%;background:var(--primary);width:0%;transition:width .3s;border-radius:3px;"></div>
+      </div>
+      <p style="text-align:center;color:var(--text-muted);font-size:.82rem;margin-top:.5rem;" id="progressText">Initialising…</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-header"><i class="fa fa-circle-info"></i> Expected Log Format</div>
+    <pre style="font-size:.78rem;color:var(--text-muted);background:var(--surface2);padding:1rem;border-radius:8px;overflow-x:auto;line-height:1.6;">192.168.1.1 - - [14/Jun/2025:08:23:11 +0000] "GET /api/users HTTP/1.1" 200 1024
+10.0.0.5  - - [14/Jun/2025:14:05:44 +0000] "POST /login HTTP/1.1" 401 256
+172.16.0.2 - - [14/Jun/2025:23:59:01 +0000] "GET /missing HTTP/1.1" 404 512</pre>
+    <p style="font-size:.8rem;color:var(--text-muted);margin-top:.75rem;">Standard Apache / Nginx combined access log format. The engine extracts HTTP status codes, request hours, HTTP methods, and source IPs.</p>
+  </div>
+</div>
+
+<script>
+function fileSelected(input) {
+  const file = input.files[0];
+  if (file) {
+    document.getElementById('selectedFile').textContent = '✓ ' + file.name + ' (' + (file.size/1024/1024).toFixed(2) + ' MB)';
+    document.getElementById('selectedFile').style.display = 'block';
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('dropzone').style.borderColor = 'var(--success)';
+  }
+}
+
+document.getElementById('uploadForm').addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+  const progress = document.getElementById('progress');
+  progress.style.display = 'block';
+  const bar = document.getElementById('progressBar');
+  const text = document.getElementById('progressText');
+  const steps = ['Splitting file into chunks…','Mapping chunks in parallel…','Shuffling & grouping keys…','Reducing to final counts…','Saving to database…'];
+  let i = 0;
+  const iv = setInterval(function() {
+    if (i < steps.length) {
+      bar.style.width = ((i+1)/steps.length*90) + '%';
+      text.textContent = steps[i++];
+    }
+  }, 600);
+});
+
+// Drag-and-drop
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor='var(--primary)'; });
+dz.addEventListener('dragleave', () => { dz.style.borderColor='var(--border)'; });
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.style.borderColor='var(--border)';
+  const files = e.dataTransfer.files;
+  if (files.length) {
+    document.getElementById('logfile').files = files;
+    fileSelected(document.getElementById('logfile'));
+  }
+});
+</script>
+{% endblock %}
