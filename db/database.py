@@ -41,6 +41,7 @@ class DatabaseManager:
         self._use_postgres = bool(DATABASE_URL and PSYCOPG2_AVAILABLE)
         if self._use_postgres:
             self._pg_conn = None   # lazy connection
+            self._ensure_pg_schema()
         else:
             self._sqlite_path = os.environ.get("SQLITE_PATH", "log_analyzer.db")
             self._init_sqlite()
